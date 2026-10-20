@@ -28,7 +28,7 @@ You can call tools. Use them whenever they give a better answer than memory alon
 Think about which tool fits, call it, read the result, then answer clearly and concisely in Markdown.`;
 
 export const DEFAULT_SETTINGS = {
-  provider: 'demo',
+  provider: 'preview',
   model: '',
   baseUrl: '',
   temperature: 0.4,
@@ -44,6 +44,7 @@ export const DEFAULT_SETTINGS = {
 export function loadSettings() {
   const saved = read(localStorage, 'settings', {});
   const s = { ...DEFAULT_SETTINGS, ...saved };
+  if (s.provider === 'demo') s.provider = 'preview'; // renamed in v1.1
   s.tavilyKey = read(sessionStorage, 'tavily', null) ?? read(localStorage, 'tavily', '');
   return s;
 }
@@ -80,6 +81,9 @@ export function saveConversations(conversations) {
     write(localStorage, 'conversations', slim);
   }
 }
+
+export const hasSeenWelcome = () => !!read(localStorage, 'welcomed', false);
+export const markWelcomed = () => write(localStorage, 'welcomed', true);
 
 export function clearAll() {
   for (const store of [localStorage, sessionStorage]) {

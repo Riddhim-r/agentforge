@@ -22,6 +22,7 @@ const el = {
   form: $('#composer'), input: $('#input'), send: $('#send'), attach: $('#attach'), fileInput: $('#file-input'), chips: $('#file-chips'),
   title: $('#chat-title'), modelBadge: $('#model-badge'), usage: $('#usage'), dialog: $('#settings'), settingsForm: $('#settings-form'),
   toast: $('#toast'), mic: $('#mic'), dropzone: $('#dropzone'),
+  welcome: $('#welcome'), connectForm: $('#connect-form'), banner: $('#mode-banner'), bannerText: $('#mode-text'),
 };
 
 // ---------- helpers ----------
@@ -53,12 +54,15 @@ function applyTheme() {
   document.querySelector('#hljs-theme').href = `https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github${dark ? '-dark' : ''}.min.css`;
 }
 
-function providerLabel() {
+/** Where the app stands: 'preview' (no model), 'missing' (provider chosen, key absent) or 'connected'. */
+function connection() {
   const s = state.settings;
-  const preset = PROVIDERS[s.provider] || PROVIDERS.demo;
-  if (s.provider === 'demo') return 'Demo mode';
-  return `${preset.label} · ${s.model || preset.defaultModel || 'no model'}`;
+  const p = PROVIDERS[s.provider] || PROVIDERS.preview;
+  if (p.kind === 'preview') return { status: 'preview', label: 'Preview · no key', provider: p };
+  if (p.needsKey && !store.getKey(s.provider)) return { status: 'missing', label: `${p.label} · key needed`, provider: p };
+  return { status: 'connected', label: `${p.label} · ${s.model || p.defaultModel || 'no model'}`, provider: p };
 }
+const providerLabel = () => connection().label;
 
 // ---------- rendering ----------
 function renderSidebar() {
@@ -74,8 +78,15 @@ function renderSidebar() {
 function renderHeader() {
   const c = current();
   el.title.textContent = c?.title || 'New conversation';
-  el.modelBadge.textContent = providerLabel();
-  el.modelBadge.classList.toggle('demo', state.settings.provider === 'demo');
+  const conn = connection();
+  el.modelBadge.textContent = conn.label;
+  el.modelBadge.className = `model-badge ${conn.status}`;
+  el.modelBadge.title = conn.status === 'connected' ? 'Change model' : 'Connect a model';
+  el.banner.hidden = conn.status === 'connected';
+  el.banner.className = `mode-banner ${conn.status}`;
+  el.bannerText.textContent = conn.status === 'preview'
+    ? 'Preview mode: no AI model is connected. Replies are scripted, but the tools are real.'
+    : `Your ${conn.provider.label} key isn't available in this tab (keys are forgotten when a tab closes unless you choose to remember them). Reconnect to keep chatting.`;
   const u = c?.usage;
   el.usage.textContent = u && (u.input || u.output) ? `${fmtTokens(u.input)} in · ${fmtTokens(u.output)} out tokens` : '';
 }
@@ -312,9 +323,9 @@ function syncProviderFields() {
   const f = el.settingsForm;
   const id = f.provider.value;
   const p = PROVIDERS[id];
-  const isDemo = id === 'demo';
-  $('#provider-fields').hidden = isDemo;
-  $('#demo-hint').hidden = !isDemo;
+  const isPreview = id === 'preview';
+  $('#provider-fields').hidden = isPreview;
+  $('#preview-hint').hidden = !isPreview;
   f.apiKey.value = store.getKey(id);
   f.rememberKey.checked = store.isKeyRemembered(id);
   f.model.value = state.settings.models?.[id] || (id === state.settings.provider ? state.settings.model : '') || '';
@@ -365,12 +376,110 @@ function saveSettingsForm() {
   s.confirmCode = f.confirmCode.checked;
   s.theme = f.theme.value;
   s.tavilyKey = f.tavilyKey.value.trim();
-  if (id !== 'demo') store.setKey(id, f.apiKey.value.trim(), f.rememberKey.checked);
+  if (id !== 'preview') store.setKey(id, f.apiKey.value.trim(), f.rememberKey.checked);
   store.setTavilyKey(s.tavilyKey, f.rememberKey.checked);
   store.saveSettings(s);
   applyTheme();
   renderHeader();
   toast('Settings saved');
+}
+
+// ---------- welcome / connect ----------
+const CONNECT_ORDER = ['openrouter', 'openai', 'anthropic', 'gemini', 'groq', 'aipipe', 'ollama', 'custom'];
+
+function showWelcome() {
+  const f = el.connectForm;
+  f.provider.innerHTML = CONNECT_ORDER.map((id) => `<option value="${id}">${escapeHtml(PROVIDERS[id].label)}</option>`).join('');
+  f.provider.value = PROVIDERS[state.settings.provider]?.kind === 'preview' ? 'openrouter' : state.settings.provider;
+  syncConnectFields();
+  $('#connect-error').hidden = true;
+  el.welcome.hidden = false;
+  document.body.classList.add('welcome-open');
+  el.welcome.scrollTop = 0;
+  if (matchMedia('(min-width: 861px)').matches) setTimeout(() => f.apiKey.focus({ preventScroll: true }), 50);
+}
+
+function hideWelcome() {
+  store.markWelcomed();
+  el.welcome.hidden = true;
+  document.body.classList.remove('welcome-open');
+  renderHeader();
+  el.input.focus();
+}
+
+function syncConnectFields() {
+  const f = el.connectForm;
+  const id = f.provider.value;
+  const p = PROVIDERS[id];
+  f.apiKey.value = store.getKey(id);
+  f.apiKey.placeholder = p.needsKey ? 'Paste your API key' : 'Optional';
+  $('#connect-key-row').firstChild.textContent = p.needsKey ? 'API key' : 'API key (optional)';
+  f.remember.checked = store.isKeyRemembered(id);
+  const link = $('#connect-key-link');
+  link.hidden = !p.keyUrl;
+  if (p.keyUrl) { link.href = p.keyUrl; link.textContent = `Get your ${p.label} key →`; }
+  $('#connect-url-row').hidden = !p.editableBaseUrl;
+  f.baseUrl.value = state.settings.baseUrls?.[id] || p.baseUrl || '';
+  f.model.value = state.settings.models?.[id] || '';
+  f.model.placeholder = p.defaultModel || 'model name';
+}
+
+async function connect(e) {
+  e.preventDefault();
+  const f = el.connectForm;
+  const id = f.provider.value;
+  const p = PROVIDERS[id];
+  const apiKey = f.apiKey.value.trim();
+  const baseUrl = f.baseUrl.value.trim();
+  const errorEl = $('#connect-error');
+  const btn = $('#connect-btn');
+  errorEl.hidden = true;
+  if (p.needsKey && !apiKey) { errorEl.textContent = `Paste your ${p.label} API key, or explore without one below.`; errorEl.hidden = false; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'Checking…';
+  try {
+    // Best-effort check: listing models confirms the key (and the endpoint) work for most providers.
+    const provider = createProvider({ provider: id, apiKey, baseUrl, model: f.model.value.trim() || p.defaultModel });
+    await Promise.race([provider.listModels(), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))]);
+  } catch (err) {
+    if (err.status === 401 || err.status === 403) {
+      errorEl.textContent = `${p.label} rejected this key. Check that you copied all of it.`;
+      errorEl.hidden = false;
+      btn.disabled = false;
+      btn.textContent = 'Connect and start';
+      return;
+    }
+    if (id === 'ollama' || id === 'custom') {
+      errorEl.textContent = `Couldn't reach ${baseUrl || 'that endpoint'}. Is it running and allowing browser requests?`;
+      errorEl.hidden = false;
+      btn.disabled = false;
+      btn.textContent = 'Connect and start';
+      return;
+    }
+    // Other failures (e.g. a provider whose model list blocks browsers) shouldn't block connecting.
+  }
+  btn.disabled = false;
+  btn.textContent = 'Connect and start';
+
+  const s = state.settings;
+  s.provider = id;
+  s.model = f.model.value.trim();
+  s.models = { ...(s.models || {}), [id]: s.model };
+  if (p.editableBaseUrl) { s.baseUrl = baseUrl; s.baseUrls = { ...(s.baseUrls || {}), [id]: baseUrl }; } else s.baseUrl = '';
+  store.setKey(id, apiKey, f.remember.checked);
+  store.saveSettings(s);
+  hideWelcome();
+  toast(`Connected to ${p.label}`);
+}
+
+function explore() {
+  // Keep a working connection if there is one; otherwise drop into preview.
+  if (connection().status !== 'connected') {
+    state.settings.provider = 'preview';
+    store.saveSettings(state.settings);
+  }
+  hideWelcome();
 }
 
 // ---------- export ----------
@@ -454,6 +563,8 @@ function bind() {
       const id = t.dataset.approve || t.dataset.deny;
       const resolve = state.running?.approvals.get(id);
       if (resolve) { state.running.approvals.delete(id); resolve(!!t.dataset.approve); }
+    } else if ('connect' in t.dataset) {
+      showWelcome();
     } else if ('copy' in t.dataset) {
       navigator.clipboard?.writeText(t.parentElement.querySelector('code')?.innerText || '').then(() => toast('Copied'));
     }
@@ -471,7 +582,12 @@ function bind() {
   });
   const openSettings = () => { fillSettingsForm(); el.dialog.showModal(); };
   $('#open-settings').addEventListener('click', openSettings);
-  el.modelBadge.addEventListener('click', openSettings);
+  el.modelBadge.addEventListener('click', () => (connection().status === 'connected' ? openSettings() : showWelcome()));
+  $('#about').addEventListener('click', showWelcome);
+  el.connectForm.addEventListener('submit', connect);
+  el.connectForm.provider.addEventListener('change', syncConnectFields);
+  $('#explore').addEventListener('click', explore);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !el.welcome.hidden && store.hasSeenWelcome()) hideWelcome(); });
   $('#close-settings').addEventListener('click', () => el.dialog.close());
   el.settingsForm.provider.addEventListener('change', syncProviderFields);
   el.settingsForm.temperature.addEventListener('input', (e) => { $('#temp-value').textContent = e.target.value; });
@@ -496,6 +612,7 @@ function boot() {
   if (recent) { state.currentId = recent.id; renderConversation(); } else newConversation();
   setRunning(false);
   renderChips();
+  if (!store.hasSeenWelcome()) showWelcome();
   document.body.classList.add('ready');
 }
 

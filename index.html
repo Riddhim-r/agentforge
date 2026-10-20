@@ -58,7 +58,10 @@
           <h1 id="chat-title">New conversation</h1>
           <span id="usage" class="usage"></span>
         </div>
-        <button id="model-badge" class="model-badge" type="button" title="Change model">Demo mode</button>
+        <button id="model-badge" class="model-badge" type="button" title="Model connection">Preview · no key</button>
+        <button id="about" class="icon-btn" type="button" title="About AgentForge" aria-label="About AgentForge">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+        </button>
         <button id="export" class="icon-btn" type="button" title="Export as Markdown" aria-label="Export as Markdown">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
         </button>
@@ -88,12 +91,15 @@
             <button type="button" class="prompt" data-prompt="Make a bar chart of monthly user growth from January to June.">
               <strong>Visualise</strong><span>Chart of monthly growth</span></button>
           </div>
-          <p class="muted small">You're in demo mode: a scripted planner drives real tools. Add an API key in <button type="button" class="link" onclick="document.querySelector('#open-settings').click()">Settings</button> to use a real model.</p>
         </section>
         <div id="messages" class="messages" aria-live="polite"></div>
       </div>
 
       <form id="composer" class="composer" autocomplete="off">
+        <div id="mode-banner" class="mode-banner" hidden>
+          <span id="mode-text"></span>
+          <button type="button" class="btn sm primary" data-connect>Connect a model</button>
+        </div>
         <div id="file-chips" class="file-chips" hidden></div>
         <div class="composer-box">
           <button id="attach" class="icon-btn" type="button" title="Attach files" aria-label="Attach files">
@@ -111,6 +117,45 @@
     </main>
   </div>
 
+
+  <div id="welcome" class="welcome" hidden role="dialog" aria-modal="true" aria-labelledby="welcome-title">
+    <div class="welcome-card">
+      <section class="welcome-intro">
+        <div class="welcome-brand"><img src="assets/logo.svg" alt="" width="36" height="36"><span>AgentForge</span></div>
+        <h1 id="welcome-title">An AI agent that works in your browser.</h1>
+        <p class="lede">Ask a question and AgentForge works out which tools it needs, runs them, reads the results and keeps going until it has an answer. You see every step.</p>
+        <ol class="how">
+          <li><span class="how-n">1</span><div><strong>You ask</strong><p>Research, calculations, data analysis, a file to summarise.</p></div></li>
+          <li><span class="how-n">2</span><div><strong>The model plans</strong><p>It chooses tools: web search, JavaScript, Python, file reading, charts.</p></div></li>
+          <li><span class="how-n">3</span><div><strong>Tools run in this tab</strong><p>Code runs in sandboxed workers on your device, then the model answers from the results.</p></div></li>
+        </ol>
+        <div class="byok">
+          <strong>Bring your own key.</strong>
+          AgentForge has no server, so it uses an AI model through <em>your</em> API key. The key is stored only in this browser and sent only to the provider you pick. Not sure where to start? <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">OpenRouter</a> gives one key for hundreds of models, including free ones.
+        </div>
+      </section>
+
+      <section class="welcome-actions">
+        <form id="connect-form" class="connect" autocomplete="off">
+          <h2>Connect a model</h2>
+          <label>Provider<select name="provider"></select></label>
+          <label id="connect-key-row">API key
+            <input name="apiKey" type="password" spellcheck="false" placeholder="Paste your API key">
+          </label>
+          <a id="connect-key-link" class="small" target="_blank" rel="noopener">Get a key →</a>
+          <label id="connect-url-row" hidden>Base URL<input name="baseUrl" spellcheck="false"></label>
+          <label>Model (optional)<input name="model" spellcheck="false"></label>
+          <label class="check"><input name="remember" type="checkbox"> Remember my key on this device</label>
+          <p id="connect-error" class="connect-error" hidden></p>
+          <button type="submit" class="btn primary block" id="connect-btn">Connect and start</button>
+        </form>
+        <div class="or"><span>or</span></div>
+        <button type="button" id="explore" class="btn block">Explore without a key</button>
+        <p class="hint center">Preview mode: replies are scripted, but the tools are real. You can connect a model any time.</p>
+      </section>
+    </div>
+  </div>
+
   <div id="dropzone" class="dropzone" hidden><div>Drop files to attach them</div></div>
   <div id="toast" class="toast" role="status"></div>
 
@@ -126,7 +171,7 @@
         <fieldset>
           <legend>Model</legend>
           <label>Provider<select name="provider"></select></label>
-          <p id="demo-hint" class="hint">Demo mode needs no key. A keyword planner stands in for the model, so you can try every tool. Pick a provider to use a real LLM.</p>
+          <p id="preview-hint" class="hint">Preview mode needs no key. A keyword planner stands in for the model, so you can try every tool. Pick a provider to use a real model.</p>
           <div id="provider-fields">
             <label>API key
               <span class="row"><input name="apiKey" type="password" spellcheck="false" autocomplete="off"><button id="toggle-key" type="button" class="btn sm">Show</button></span>

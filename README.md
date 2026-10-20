@@ -1,182 +1,187 @@
-<div align="center">
+<p align="center">
+  <img src="assets/logo.svg" width="80" height="80" alt="AgentForge">
+</p>
 
-<img src="assets/logo.svg" width="72" height="72" alt="AgentForge logo">
+<h1 align="center">AgentForge</h1>
 
-# AgentForge
+<p align="center">
+  An AI agent that thinks, uses tools and shows its work, running entirely in your browser.<br>
+  <sub>No server · No build step · Works with any major LLM, or no key at all</sub>
+</p>
 
-**A tool-using AI agent that runs entirely in your browser.**
-It plans, calls real tools, reads the results and keeps going until the job is done. No backend, no build step. Bring your own model.
+<p align="center">
+  <!-- Replace with your deployed URL -->
+  <a href="https://agentforge.vercel.app"><b>Open the app</b></a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#under-the-hood">Under the hood</a> ·
+  <a href="#roadmap">Roadmap</a>
+</p>
 
-[**Try it live →**](https://agentforge.vercel.app) &nbsp;·&nbsp; [How it works](#how-the-agent-loop-works) &nbsp;·&nbsp; [Run locally](#run-it-locally)
+<p align="center">
+  <img src="https://github.com/Riddhim-r/agentforge/actions/workflows/ci.yml/badge.svg" alt="CI">
+  <img src="https://img.shields.io/badge/vanilla-JavaScript-f7df1e" alt="Vanilla JS">
+  <img src="https://img.shields.io/badge/backend-none-15130f" alt="No backend">
+  <img src="https://img.shields.io/badge/license-MIT-e8590c" alt="MIT">
+</p>
 
-![CI](https://github.com/Riddhim-r/agentforge/actions/workflows/ci.yml/badge.svg)
-![License: MIT](https://img.shields.io/badge/license-MIT-orange)
-![No backend](https://img.shields.io/badge/backend-none-black)
+<p align="center">
+  <img src="docs/agent-light.png" width="880" alt="AgentForge searching Wikipedia and drawing a chart">
+</p>
 
-<img src="docs/agent-light.png" alt="AgentForge searching the web and drawing a chart" width="900">
+## Overview
 
-</div>
+Ask AgentForge a question and it doesn't just reply. It decides which tools it needs, calls them, reads what comes back and keeps going until it has an answer. You watch every step: each tool call appears as a card with its input, output and timing.
 
----
+All of this happens in a single browser tab. Your API key goes directly to the model provider you choose, code runs in sandboxed workers on your machine, and conversations are saved in your browser. There is no backend to deploy or trust.
 
-## Why I built this
+The first time you open it, a welcome screen explains how it works and asks you to choose:
 
-Most agent demos need a Python server, a hosted API key and a deployment. I wanted to see how much of a real agent can run **client-side only**:
+- **Connect a model:** pick a provider and paste your API key. The key is checked on the spot and stored only in your browser.
+- **Explore without a key:** **preview mode**, where a small scripted planner stands in for the model but the tools it calls are real. You can see the whole loop work in a few seconds.
 
-- **Nothing to host** except static files, so it deploys anywhere for free.
-- **No shared secret.** Each user's key goes straight from their tab to their provider.
-- **Small enough to read in one sitting.** The whole agent loop is about 100 lines ([`src/core/agent.js`](src/core/agent.js)).
+<p align="center"><img src="docs/welcome.png" width="820" alt="AgentForge welcome screen"></p>
 
-It also works with **no key at all**. Demo mode swaps the LLM for a small scripted planner, but every tool it calls is real. Anyone can open the link and see the agent loop working within seconds.
+A status badge in the top bar always shows where you stand: **Preview · no key**, **Connected** (with the provider and model), or **Key needed** when a provider is chosen but its key isn't available in the current tab.
 
-## What it can do
+## Features
 
-| Tool | What it does | How it runs in the browser |
-| --- | --- | --- |
-| `web_search` | Looks things up and cites sources | Wikipedia API (no key), or full-web search with a [Tavily](https://tavily.com) key |
-| `run_javascript` | Calculations, data transforms, quick checks | Isolated **Web Worker**, terminated after 10 s, so infinite loops can't freeze the page |
-| `run_python` | Real CPython: statistics, pandas, numpy | **Pyodide** (WebAssembly) in a worker. Loads on first use, state persists, attached files are mounted at `/data/` |
-| `read_file` | Reads files you attach or drop in | Text, code, CSV, JSON, Markdown, and **PDF** (text extracted with pdf.js); pages through long files |
-| `create_chart` | Draws charts in the conversation | Chart.js (bar, line, pie, doughnut, scatter, radar) |
-| `get_datetime` | Knows "today" | `Intl` API |
+**Tools the agent can use**
 
-**Models:** OpenRouter, OpenAI, Anthropic, Google Gemini, Groq, AI Pipe, local **Ollama**, or any OpenAI-compatible endpoint.
+- 🔎 **Web search.** Wikipedia out of the box, or the whole web with a Tavily key. Answers cite their sources.
+- 🟨 **JavaScript sandbox.** Runs in a Web Worker with a 10-second kill switch, so even `while (true) {}` can't hang the page.
+- 🐍 **Python.** Real CPython via Pyodide (WebAssembly), with numpy and pandas on demand. Attached files are available at `/data/`.
+- 📄 **File reading.** Drop in CSV, JSON, Markdown, code, text or PDF files and the agent can read and page through them.
+- 📊 **Charts.** Bar, line, pie, doughnut, scatter and radar charts rendered inside the conversation.
+- 🕒 **Date and time.** So "this week" means this week.
 
-**Around the agent**
-- **Streaming** responses, with every tool call shown as a card: arguments, output, timing and status.
-- **Human-in-the-loop mode:** approve or skip each code execution before it runs.
-- **Stop** a run at any point. The history is repaired so the next request stays valid.
-- Parallel tool calls, a configurable step limit, an editable system prompt, and per-conversation token usage.
-- Conversations saved locally, Markdown export, voice input, light/dark themes, mobile layout, installable as a PWA.
+**Models**
 
-<img src="docs/agent-dark.png" alt="Python running in the browser via Pyodide, dark theme" width="900">
+OpenRouter · OpenAI · Anthropic · Google Gemini · Groq · AI Pipe · Ollama (local) · any OpenAI-compatible endpoint
 
-## How the agent loop works
+**Experience**
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as runAgent()
-    participant P as Provider adapter
-    participant T as Tools
+- Responses stream in token by token.
+- Optional **approval mode**: review and approve each piece of code before it runs.
+- **Stop** a run at any moment, including mid-tool-call.
+- Token usage per conversation, retry on errors, export to Markdown.
+- Voice input, light and dark themes, a mobile layout, and installation as an app (PWA).
 
-    U->>A: message
-    loop until no tool calls (or max steps)
-        A->>P: history + tool schemas
-        P-->>A: streamed text + tool_calls
-        alt tool calls present
-            A->>T: run all calls in parallel (approval if enabled)
-            T-->>A: results (errors become results, not crashes)
-            A->>A: append results to history
-        else final answer
-            A-->>U: done
-        end
-    end
-```
+<p align="center">
+  <img src="docs/agent-dark.png" width="880" alt="Python statistics running in the browser, dark theme">
+</p>
 
-The core is provider-agnostic. Messages use one neutral shape, and each provider adapter converts it to its own API format:
+## Quick start
 
-```js
-{ role: 'user', content }
-{ role: 'assistant', content, toolCalls: [{ id, name, arguments }] }
-{ role: 'tool', toolCallId, name, content, isError, ms }
-```
+**Use it:** open [the app](https://agentforge.vercel.app), then either connect a model on the welcome screen or explore in preview mode. You can connect later with the **Connect a model** button or from **Settings**. [OpenRouter](https://openrouter.ai/keys) is the easiest start: one key gives you hundreds of models. Pick one that supports tool calling, such as `openai/gpt-4o-mini`.
 
-| Adapter | Covers | Notes |
-| --- | --- | --- |
-| [`openai.js`](src/providers/openai.js) | OpenAI, OpenRouter, Gemini, Groq, AI Pipe, Ollama, custom | Re-assembles tool calls whose JSON arguments arrive in fragments across SSE chunks |
-| [`anthropic.js`](src/providers/anthropic.js) | Claude models | `tool_use` / `tool_result` content blocks, `input_json_delta` streaming, merges consecutive results into one user turn |
-| [`demo.js`](src/providers/demo.js) | No key | Keyword planner that drives the real tools |
-
-## Architecture
-
-```mermaid
-flowchart LR
-    subgraph Browser tab
-        UI[main.js<br/>UI + state] --> AG[core/agent.js<br/>agent loop]
-        AG --> PR[providers/*<br/>OpenAI · Anthropic · Demo]
-        AG --> TL[tools/*]
-        TL --> W1[[JS Web Worker]]
-        TL --> W2[[Pyodide Worker]]
-        UI <--> LS[(localStorage<br/>chats · settings)]
-        UI <--> SS[(sessionStorage<br/>API keys)]
-    end
-    PR -- HTTPS + SSE --> LLM[(LLM provider)]
-    TL -- HTTPS --> WEB[(Wikipedia / Tavily)]
-```
-
-```
-agentforge/
-├── index.html              # markup only
-├── styles.css              # design tokens, light/dark themes, responsive layout
-├── src/
-│   ├── main.js             # UI controller: conversations, streaming render, settings, files
-│   ├── render.js           # Markdown (sanitised), tool cards, charts
-│   ├── storage.js          # localStorage/sessionStorage persistence
-│   ├── core/
-│   │   ├── agent.js        # runAgent, executeToolCall, repairHistory
-│   │   ├── sse.js          # streaming Server-Sent Events parser
-│   │   └── http.js         # readable API and network errors
-│   ├── providers/          # openai.js, anthropic.js, demo.js, index.js (presets)
-│   └── tools/              # web-search, code (+ workers), files, charts
-├── tests/                  # node:test unit tests, no dependencies
-└── .github/workflows/ci.yml
-```
-
-No framework and no bundler: native ES modules, with four small libraries from a CDN (marked, DOMPurify, highlight.js, Chart.js). Pyodide and pdf.js load only when first needed.
-
-## Design decisions
-
-- **One neutral message format with thin adapters**, rather than OpenAI's format everywhere. Anthropic's block-based format differs enough that converting at the edge kept the loop simple. Adding a provider is one file.
-- **Tool failures are data.** Unknown tools, malformed JSON arguments, timeouts and user denials all come back to the model as `isError` results, so it can recover instead of the run crashing.
-- **Workers, not `eval` or iframes**, for code. A worker can be `terminate()`d, which is the only reliable way to stop `while(true){}`, and it has no access to the page, the DOM or the stored API key.
-- **Keys in `sessionStorage` by default.** They're forgotten when the tab closes unless you choose to remember them. Model output is rendered through **DOMPurify**, so a prompt-injected `<img onerror>` can't run.
-- **`repairHistory()` after every run.** If you stop mid-tool-call, the history would contain a `tool_call` with no result, and every API rejects that. The repair step inserts a "cancelled" result so the conversation stays usable.
-- **Demo mode as a first-class provider**, so the live link is never a dead end for someone without a key.
-
-## Run it locally
-
-No install is needed for the app itself:
+**Run it locally:**
 
 ```bash
 git clone https://github.com/Riddhim-r/agentforge.git
 cd agentforge
-npm run dev        # serves on http://localhost:5173 (or any static server)
-npm test           # 24 unit tests: agent loop, SSE parsing, provider adapters, tools
+npm run dev    # http://localhost:5173
 ```
 
-Then open Settings, pick a provider and paste a key. [OpenRouter](https://openrouter.ai/keys) gives you one key for hundreds of models, including free ones. Choose a model that supports tool calling.
+Any static file server works; there are no dependencies to install.
 
-**Local models:** run `OLLAMA_ORIGINS=* ollama serve`, choose *Ollama (local)*, and use a tool-capable model such as `llama3.2` or `qwen2.5`.
+**Use a local model:** start Ollama with `OLLAMA_ORIGINS=*` so the browser can reach it, then choose **Ollama (local)** in Settings with a tool-capable model such as `qwen2.5` or `llama3.2`.
 
-## Deploy
+## Under the hood
 
-It's a static site. On Vercel: **Add New → Project →** import this repo → **Deploy** (no build command, no output directory). Netlify, Cloudflare Pages and GitHub Pages work the same way.
+### The agent loop
 
-## Privacy and security
+The core lives in [`src/core/agent.js`](src/core/agent.js) and knows nothing about the UI or any specific provider:
 
-- There's no server. Conversations and settings stay in your browser's storage.
-- API keys are sent only to the provider you selected, directly from your browser.
-- Code the model writes runs in a sandboxed worker with a timeout. Turn on *Ask before running code* to review each run.
-- Calling some providers from a browser exposes your key to that page's JavaScript. That's fine for a personal tool, but don't paste a key for a shared or high-limit account into a site you don't trust (including this one).
+```text
+history = [user message]
+repeat up to maxSteps:
+    reply = model(history, tool schemas)        # streamed
+    if reply has no tool calls: done
+    results = run all tool calls in parallel    # errors become results
+    history += reply + results
+```
 
-## Limitations
+Two details make it robust in practice:
 
-- Each provider must allow browser (CORS) requests. OpenAI, Anthropic, OpenRouter, Gemini and Groq do; some proxies don't.
-- Keyless web search covers Wikipedia only. Add a Tavily key for the open web.
-- Attached files live in memory for the session; they aren't saved with the conversation.
-- The first Python run downloads the Pyodide runtime (~10 MB, cached afterwards).
+- **Failures are information, not crashes.** An unknown tool, malformed JSON arguments, a timeout or a "Skip" from the user all go back to the model as an error result, so it can change course.
+- **History repair.** If you stop a run between a tool call and its result, every provider API would reject the conversation from then on. `repairHistory()` fills the gap with a "cancelled" result, so the chat keeps working.
+
+### One format, many providers
+
+Internally every conversation uses one neutral message shape. Each provider is a thin adapter that converts it on the way out and parses the stream on the way back:
+
+| Adapter | Providers | What it handles |
+| --- | --- | --- |
+| [`openai.js`](src/providers/openai.js) | OpenAI, OpenRouter, Gemini, Groq, AI Pipe, Ollama, custom | Rebuilds tool calls whose JSON arguments arrive in fragments across many SSE chunks |
+| [`anthropic.js`](src/providers/anthropic.js) | Claude models | `tool_use` / `tool_result` blocks, `input_json_delta` streaming, merging parallel results into one turn |
+| [`preview.js`](src/providers/preview.js) | No key (preview mode) | Keyword-based planner that calls the real tools |
+
+Adding a provider means writing one file.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    subgraph tab["Browser tab"]
+        UI["main.js · UI"] --> AG["agent.js · loop"]
+        AG --> PR["providers/"]
+        AG --> TL["tools/"]
+        TL --> JS[["JS worker"]]
+        TL --> PY[["Pyodide worker"]]
+        UI <--> ST[("local + session storage")]
+    end
+    PR -- "HTTPS · SSE" --> LLM[("LLM API")]
+    TL -- HTTPS --> SRC[("Wikipedia / Tavily")]
+```
+
+```text
+src/
+├── main.js            UI controller: conversations, live rendering, settings, files
+├── render.js          sanitised Markdown, tool cards, charts
+├── storage.js         persistence (keys in sessionStorage by default)
+├── core/              agent loop · SSE parser · HTTP errors
+├── providers/         openai · anthropic · preview · presets
+└── tools/             web search · code runners + workers · files · charts
+tests/                 unit tests on node:test, no dependencies
+```
+
+It's built with plain ES modules and no framework or bundler. Four small libraries load from a CDN (marked, DOMPurify, highlight.js, Chart.js). Pyodide and pdf.js download only the first time they're needed.
+
+## Testing
+
+```bash
+npm test
+```
+
+The suite covers the agent loop (multi-step runs, parallel calls, step limits, errors, approvals, aborts and history repair), the SSE parser under arbitrary chunk splits, both provider adapters end to end with a mocked `fetch`, and every tool. GitHub Actions runs it on each push.
+
+## Security and privacy
+
+- **No server.** Nothing you type passes through a server of mine.
+- **Keys** are sent only to the provider you selected. By default they live in `sessionStorage` and are forgotten when the tab closes.
+- **Model output is sanitised** with DOMPurify before rendering, so injected HTML or scripts don't run.
+- **Generated code** runs in a Web Worker, with no access to the page, your storage or your key. It has a hard timeout, and you can turn on approval for every run.
+- As with any browser-based client, use keys with sensible spending limits.
+
+## Known limitations
+
+- Providers must accept browser (CORS) requests. The major ones do; some proxies don't.
+- Keyless search covers Wikipedia only.
+- Attached files stay in memory for the session and aren't saved with chats.
+- The first Python run downloads about 10 MB (cached afterwards).
 
 ## Roadmap
 
-- [ ] MCP client: connect to remote MCP servers over HTTP and expose their tools
-- [ ] Run small models fully on-device with WebLLM (no key, no network)
-- [ ] Export and replay agent traces (JSON) for debugging prompts
-- [ ] Per-conversation tool toggles and a cost estimate per run
+- [ ] **MCP client:** connect to remote MCP servers and use their tools
+- [ ] **On-device models** with WebLLM, so no key or network is needed
+- [ ] **Trace export and replay** for debugging prompts and tool use
+- [ ] Per-chat tool toggles and cost estimates
 - [ ] Image input for vision models
 
-## License
+## Author
 
-[MIT](LICENSE) © Riddhim Rathor
+Designed and built by **Riddhim Rathor**.
 
-<sub>Built by **Riddhim Rathor** · [Portfolio](https://riddhim-spotted-on.vercel.app) · [LinkedIn](https://www.linkedin.com/in/riddhim-rathor) · [GitHub](https://github.com/Riddhim-r)</sub>
+[Portfolio](https://riddhim-spotted-on.vercel.app) · [LinkedIn](https://www.linkedin.com/in/riddhim-rathor) · [GitHub](https://github.com/Riddhim-r)
+
+Released under the [MIT License](LICENSE).

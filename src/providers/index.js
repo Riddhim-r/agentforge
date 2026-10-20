@@ -1,13 +1,13 @@
 import { createOpenAIProvider } from './openai.js';
 import { createAnthropicProvider } from './anthropic.js';
-import { createDemoProvider } from './demo.js';
+import { createPreviewProvider } from './preview.js';
 
 /**
- * Provider presets. Everything except Anthropic and Demo speaks the
+ * Provider presets. Everything except Anthropic and Preview speaks the
  * OpenAI Chat Completions format, so one adapter covers them all.
  */
 export const PROVIDERS = {
-  demo: { label: 'Demo (no key needed)', kind: 'demo', defaultModel: 'scripted-planner', needsKey: false },
+  preview: { label: 'Preview (no key)', kind: 'preview', defaultModel: 'scripted-planner', needsKey: false },
   openrouter: {
     label: 'OpenRouter', kind: 'openai', baseUrl: 'https://openrouter.ai/api/v1', defaultModel: 'openai/gpt-4o-mini',
     keyUrl: 'https://openrouter.ai/keys', streamUsage: true, needsKey: true,
@@ -25,10 +25,10 @@ export const PROVIDERS = {
 };
 
 export function createProvider({ provider, model, baseUrl, apiKey, temperature, maxTokens }, extras = {}) {
-  const preset = PROVIDERS[provider] || PROVIDERS.demo;
+  const preset = PROVIDERS[provider] || PROVIDERS.preview;
   const resolvedModel = model || preset.defaultModel;
-  if (preset.kind === 'demo') return createDemoProvider(extras);
-  if (preset.needsKey && !apiKey) throw new Error(`Add your ${preset.label} API key in Settings, or switch to Demo mode.`);
+  if (preset.kind === 'preview') return createPreviewProvider(extras);
+  if (preset.needsKey && !apiKey) throw new Error(`Add your ${preset.label} API key in Settings, or explore in Preview mode.`);
   if (preset.kind === 'anthropic') return createAnthropicProvider({ apiKey, model: resolvedModel, temperature, maxTokens });
   const url = (preset.editableBaseUrl && baseUrl) || preset.baseUrl;
   if (!url) throw new Error('Set a base URL for the custom provider in Settings.');

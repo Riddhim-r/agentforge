@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { toOpenAIMessages, createChunkAccumulator, createOpenAIProvider } from '../src/providers/openai.js';
 import { toAnthropicMessages, createEventAccumulator } from '../src/providers/anthropic.js';
-import { planDemo, createDemoProvider } from '../src/providers/demo.js';
+import { planPreview, createPreviewProvider } from '../src/providers/preview.js';
 import { createProvider } from '../src/providers/index.js';
 
 const history = [
@@ -88,24 +88,24 @@ test('OpenAI provider streams over SSE end to end (mocked fetch)', async () => {
 test('createProvider validates keys and base URLs', () => {
   assert.throws(() => createProvider({ provider: 'openai', apiKey: '' }), /API key/);
   assert.throws(() => createProvider({ provider: 'custom', baseUrl: '' }), /base URL/);
-  assert.equal(createProvider({ provider: 'demo' }).label, 'Demo');
+  assert.equal(createProvider({ provider: 'preview' }).label, 'Preview');
   assert.equal(createProvider({ provider: 'ollama' }).label, 'Ollama (local)');
 });
 
-test('demo planner picks sensible tools', () => {
-  assert.equal(planDemo('Search for the history of Python').name, 'web_search');
-  assert.equal(planDemo('Search for the history of Python').arguments.query, 'the history of Python');
-  assert.equal(planDemo('Run some python statistics').name, 'run_python');
-  assert.equal(planDemo('calculate fibonacci in JavaScript').name, 'run_javascript');
-  assert.equal(planDemo('make a line chart').arguments.type, 'line');
-  assert.equal(planDemo('what time is it').name, 'get_datetime');
-  assert.deepEqual(planDemo('summarise this', ['a.csv']), { name: 'read_file', arguments: { name: 'a.csv' } });
-  assert.deepEqual(planDemo('list my files').arguments, {});
-  assert.equal(planDemo('hello there'), null);
+test('preview planner picks sensible tools', () => {
+  assert.equal(planPreview('Search for the history of Python').name, 'web_search');
+  assert.equal(planPreview('Search for the history of Python').arguments.query, 'the history of Python');
+  assert.equal(planPreview('Run some python statistics').name, 'run_python');
+  assert.equal(planPreview('calculate fibonacci in JavaScript').name, 'run_javascript');
+  assert.equal(planPreview('make a line chart').arguments.type, 'line');
+  assert.equal(planPreview('what time is it').name, 'get_datetime');
+  assert.deepEqual(planPreview('summarise this', ['a.csv']), { name: 'read_file', arguments: { name: 'a.csv' } });
+  assert.deepEqual(planPreview('list my files').arguments, {});
+  assert.equal(planPreview('hello there'), null);
 });
 
-test('demo provider calls a tool, then summarises its result', async () => {
-  const p = createDemoProvider();
+test('preview provider calls a tool, then summarises its result', async () => {
+  const p = createPreviewProvider();
   const first = await p.chat({ messages: [{ role: 'user', content: 'what time is it' }] });
   assert.equal(first.toolCalls[0].name, 'get_datetime');
   const second = await p.chat({ messages: [

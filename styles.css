@@ -90,7 +90,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
   max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .model-badge::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 7px; vertical-align: 1px; }
-.model-badge.demo::before { background: var(--warn); }
 .model-badge:hover { border-color: var(--accent); }
 
 .scroller { flex: 1; overflow-y: auto; scroll-behavior: smooth; }
@@ -260,6 +259,64 @@ legend { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-sp
 .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .hint { margin: -4px 0 0; font-size: 13px; color: var(--text-3); }
 .hint code { font-size: 12px; }
+
+
+/* ---------- connection status ---------- */
+.model-badge.preview::before { background: var(--warn); }
+.model-badge.missing::before { background: var(--err); }
+.model-badge.missing { border-color: color-mix(in srgb, var(--err) 45%, var(--border)); }
+.mode-banner {
+  display: flex; align-items: center; gap: 12px; margin-bottom: 8px; padding: 8px 8px 8px 14px; border-radius: 12px; font-size: 13.5px;
+  background: color-mix(in srgb, var(--warn) 10%, var(--panel)); border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--border)); color: var(--text-2);
+}
+.mode-banner.missing { background: color-mix(in srgb, var(--err) 8%, var(--panel)); border-color: color-mix(in srgb, var(--err) 35%, var(--border)); }
+.mode-banner span { flex: 1; }
+.mode-banner .btn { white-space: nowrap; }
+
+/* ---------- welcome ---------- */
+.welcome {
+  position: fixed; inset: 0; z-index: 50; overflow-y: auto; display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(1200px 600px at 85% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 60%), var(--bg);
+}
+.welcome-card {
+  width: min(1040px, 100%); display: grid; grid-template-columns: 1.25fr 1fr; border: 1px solid var(--border); border-radius: 20px;
+  background: var(--panel); box-shadow: var(--shadow); overflow: hidden; animation: rise .35s ease-out;
+}
+.welcome-intro { padding: 40px 44px; }
+.welcome-brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+.welcome-brand img { border-radius: 9px; }
+.welcome h1 { font-size: clamp(26px, 3.4vw, 36px); line-height: 1.12; letter-spacing: -.03em; margin: 26px 0 12px; }
+.welcome .lede { margin: 0 0 24px; max-width: none; }
+.how { list-style: none; padding: 0; margin: 0 0 24px; display: flex; flex-direction: column; gap: 14px; }
+.how li { display: flex; gap: 14px; }
+.how-n { flex: none; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; font-weight: 600; font-size: 14px; background: var(--accent-soft); color: var(--accent-2); }
+.how strong { font-size: 15px; }
+.how p { margin: 1px 0 0; color: var(--text-2); font-size: 14px; }
+.byok { font-size: 14px; color: var(--text-2); padding: 14px 16px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--border); }
+.byok strong { color: var(--text); }
+.welcome-actions { padding: 40px 36px; background: var(--bg-2); border-left: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; }
+.connect { display: flex; flex-direction: column; gap: 12px; }
+.connect h2 { margin: 0 0 4px; font-size: 18px; }
+.connect label { display: flex; flex-direction: column; gap: 5px; font-size: 14px; font-weight: 500; }
+.connect label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; color: var(--text-2); }
+.connect input:not([type='checkbox']), .connect select {
+  font: inherit; font-weight: 400; color: var(--text); background: var(--panel); border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; width: 100%;
+}
+.connect input:focus, .connect select:focus { outline: none; border-color: var(--accent); }
+.connect input[type='checkbox'] { accent-color: var(--accent); width: 16px; height: 16px; }
+.connect a.small { margin-top: -6px; }
+.connect-error { margin: 0; font-size: 13px; color: var(--err); }
+.or { display: flex; align-items: center; gap: 12px; color: var(--text-3); font-size: 13px; margin: 18px 0; }
+.or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.center { text-align: center; margin-top: 10px; }
+@media (max-width: 860px) {
+  .welcome { padding: 12px; place-items: start center; }
+  .welcome-card { grid-template-columns: 1fr; }
+  .welcome-intro, .welcome-actions { padding: 26px 22px; }
+  .welcome-actions { border-left: 0; border-top: 1px solid var(--border); }
+  .welcome h1 { margin-top: 18px; }
+  .mode-banner { flex-wrap: wrap; }
+}
 
 /* ---------- mobile ---------- */
 .mobile-only { display: none; }
