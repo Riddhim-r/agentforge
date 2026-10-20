@@ -1,485 +1,173 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="GyaanSetu - Advanced AI Assistant with Multi-Tool Capabilities, Voice Interface, and Real-time Collaboration">
-    <meta name="keywords" content="AI assistant, chat interface, web search, code execution, voice assistant">
-    <meta name="author" content="Gaurav Tomar">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AgentForge · a tool-using AI agent that runs in your browser</title>
+  <meta name="description" content="AgentForge is a browser-only AI agent: real tool calling (web search, JavaScript, Python, files, charts), streaming, and any LLM provider, with no backend.">
+  <meta name="author" content="Riddhim Rathor">
+  <meta name="theme-color" content="#15130f">
+  <meta property="og:title" content="AgentForge">
+  <meta property="og:description" content="A tool-using AI agent that runs entirely in your browser. No backend, bring your own model.">
+  <meta property="og:image" content="assets/og.png">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
 
-    <!-- PWA Support -->
-    <meta name="theme-color" content="#667eea">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="AgentFlow Pro">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link id="hljs-theme" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+  <link rel="stylesheet" href="styles.css">
 
-    <!-- Preconnect to improve performance -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <!-- Modern fonts and icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-
-    <!-- Code highlighting -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="manifest.json">
-
-    <title>GyaanSetu - Advanced AI Assistant</title>
-    <link rel="stylesheet" href="styles.css">
-
-    <!-- Service Worker Registration -->
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('SW registered: ', registration))
-                    .catch(registrationError => console.log('SW registration failed: ', registrationError));
-            });
-        }
-    </script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js" defer></script>
+  <script type="module" src="src/main.js"></script>
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="loading-screen">
-        <div class="loading-content">
-            <div class="loading-logo">
-                <i class="fas fa-brain fa-3x"></i>
-            </div>
-            <h2>GyaanSetu</h2>
-            <p>Initializing Advanced AI Assistant...</p>
-            <div class="loading-bar">
-                <div class="loading-progress"></div>
-            </div>
+  <div class="app">
+    <aside id="sidebar" class="sidebar" aria-label="Conversations">
+      <div class="brand">
+        <img src="assets/logo.svg" alt="" width="28" height="28">
+        <span>AgentForge</span>
+      </div>
+      <button id="new-chat" class="btn primary block" type="button">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New chat
+      </button>
+      <nav id="conv-list" class="conv-list"></nav>
+      <footer class="sidebar-foot">
+        <p>Runs entirely in your browser. Your keys and chats never touch a server.</p>
+        <p>Built by <a href="https://riddhim-spotted-on.vercel.app" target="_blank" rel="noopener">Riddhim Rathor</a> ·
+          <a href="https://github.com/Riddhim-r/agentforge" target="_blank" rel="noopener">GitHub</a> ·
+          <a href="https://www.linkedin.com/in/riddhim-rathor" target="_blank" rel="noopener">LinkedIn</a></p>
+      </footer>
+    </aside>
+    <div id="scrim" class="scrim" aria-hidden="true"></div>
+
+    <main class="main">
+      <header class="topbar">
+        <button id="menu" class="icon-btn mobile-only" type="button" aria-label="Open conversations">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="topbar-title">
+          <h1 id="chat-title">New conversation</h1>
+          <span id="usage" class="usage"></span>
         </div>
-    </div>
+        <button id="model-badge" class="model-badge" type="button" title="Change model">Demo mode</button>
+        <button id="export" class="icon-btn" type="button" title="Export as Markdown" aria-label="Export as Markdown">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+        </button>
+        <button id="theme" class="icon-btn" type="button" title="Toggle theme" aria-label="Toggle theme">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+        <button id="open-settings" class="icon-btn" type="button" title="Settings" aria-label="Settings">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+        </button>
+      </header>
 
-    <!-- Main Application -->
-    <div id="app" class="app-container">
-        <!-- Top Navigation -->
-        <nav class="top-nav">
-            <div class="nav-brand">
-                <i class="fas fa-brain"></i>
-                <span class="brand-text">GyaanSetu</span>
-                <span class="version-badge">v2.0</span>
-            </div>
+      <div id="scroller" class="scroller">
+        <section id="empty" class="empty">
+          <img src="assets/logo.svg" alt="" width="56" height="56" class="empty-logo">
+          <h2>An AI agent that runs in your browser.</h2>
+          <p class="lede">AgentForge plans, calls real tools, reads the results and keeps going until the job is done. There's no backend: your key goes straight from this tab to the model provider.</p>
+          <div class="capabilities">
+            <span>Web search</span><span>JavaScript sandbox</span><span>Python (Pyodide)</span><span>File reading</span><span>Charts</span><span>Any LLM provider</span>
+          </div>
+          <div class="prompts">
+            <button type="button" class="prompt" data-prompt="Search for the history of the transformer architecture and summarise the key milestones.">
+              <strong>Research</strong><span>History of the transformer architecture</span></button>
+            <button type="button" class="prompt" data-prompt="Calculate the first 15 Fibonacci numbers in JavaScript and tell me which are prime.">
+              <strong>Compute</strong><span>Fibonacci primes, in a JS sandbox</span></button>
+            <button type="button" class="prompt" data-prompt="Use Python to compute the mean, median and standard deviation of some sample exam scores.">
+              <strong>Analyse</strong><span>Statistics in real Python</span></button>
+            <button type="button" class="prompt" data-prompt="Make a bar chart of monthly user growth from January to June.">
+              <strong>Visualise</strong><span>Chart of monthly growth</span></button>
+          </div>
+          <p class="muted small">You're in demo mode: a scripted planner drives real tools. Add an API key in <button type="button" class="link" onclick="document.querySelector('#open-settings').click()">Settings</button> to use a real model.</p>
+        </section>
+        <div id="messages" class="messages" aria-live="polite"></div>
+      </div>
 
-            <div class="nav-controls">
-                <button id="voice-toggle" class="nav-btn" title="Voice Input" aria-label="Voice Input">
-                    <i class="fas fa-microphone"></i>
-                </button>
-                <button id="theme-toggle" class="nav-btn" title="Toggle Theme" aria-label="Toggle Theme">
-                    <i class="fas fa-moon"></i>
-                </button>
-                <button id="fullscreen-toggle" class="nav-btn" title="Fullscreen" aria-label="Fullscreen">
-                    <i class="fas fa-expand"></i>
-                </button>
-                <button id="settings-toggle" class="nav-btn" title="Settings" aria-label="Settings">
-                    <i class="fas fa-cog"></i>
-                </button>
-            </div>
-        </nav>
-
-        <!-- Sidebar -->
-        <aside id="sidebar" class="sidebar">
-            <div class="sidebar-header">
-                <h3>Conversations</h3>
-                <button id="new-chat" class="btn-new-chat">
-                    <i class="fas fa-plus"></i> New Chat
-                </button>
-            </div>
-
-            <div class="conversation-list" id="conversation-list">
-                <!-- Conversation items will be populated here -->
-            </div>
-
-            <div class="sidebar-footer">
-                <div class="usage-stats">
-                    <div class="stat-item">
-                        <span class="stat-label">Messages</span>
-                        <span class="stat-value" id="total-messages">0</span>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-label">Conversations</span>
-                        <span class="stat-value" id="total-conversations">0</span>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Chat Header -->
-            <header class="chat-header">
-                <div class="chat-info">
-                    <h1 id="chat-title">Welcome to GyaanSetu</h1>
-                    <p id="chat-description">Your advanced AI assistant with multi-tool capabilities</p>
-                </div>
-
-                <div class="chat-actions">
-                    <button id="export-chat" class="action-btn" title="Export Chat" aria-label="Export Chat">
-                        <i class="fas fa-download"></i>
-                    </button>
-                    <button id="share-chat" class="action-btn" title="Share Chat" aria-label="Share Chat">
-                        <i class="fas fa-share"></i>
-                    </button>
-                    <button id="clear-chat" class="action-btn" title="Clear Chat" aria-label="Clear Chat">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </header>
-
-            <!-- Messages Container -->
-            <div class="messages-container" id="messages-container">
-                <div class="welcome-screen" id="welcome-screen">
-                    <div class="welcome-content">
-                        <div class="welcome-icon">
-                            <i class="fas fa-robot fa-4x"></i>
-                        </div>
-                        <h2>Welcome to GyaanSetu</h2>
-                        <p>Your intelligent AI assistant with advanced multi-tool capabilities</p>
-
-                        <div class="capability-grid">
-                            <div class="capability-card">
-                                <i class="fas fa-search"></i>
-                                <h3>Smart Search</h3>
-                                <p>Real-time web search with intelligent results</p>
-                            </div>
-                            <div class="capability-card">
-                                <i class="fas fa-code"></i>
-                                <h3>Code Execution</h3>
-                                <p>Safe JavaScript execution with visualization</p>
-                            </div>
-                            <div class="capability-card">
-                                <i class="fas fa-brain"></i>
-                                <h3>AI Workflows</h3>
-                                <p>Advanced data processing and analysis</p>
-                            </div>
-                            <div class="capability-card">
-                                <i class="fas fa-microphone"></i>
-                                <h3>Voice Interface</h3>
-                                <p>Hands-free interaction with voice commands</p>
-                            </div>
-                        </div>
-
-                        <div class="quick-actions">
-                            <button class="quick-action" data-prompt="Help me research the latest AI developments">
-                                <i class="fas fa-flask"></i>
-                                Research AI Trends
-                            </button>
-                            <button class="quick-action" data-prompt="Create a data visualization showing sample sales data">
-                                <i class="fas fa-chart-bar"></i>
-                                Create Visualization
-                            </button>
-                            <button class="quick-action" data-prompt="Help me write and test a JavaScript function">
-                                <i class="fas fa-code"></i>
-                                Code Assistant
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="messages" id="messages">
-                    <!-- Messages will be populated here -->
-                </div>
-            </div>
-
-            <!-- Input Area -->
-            <div class="input-area">
-                <div class="input-container">
-                    <div class="file-drop-zone" id="file-drop-zone">
-                        <i class="fas fa-cloud-upload-alt"></i>
-                        <p>Drop files here to analyze</p>
-                    </div>
-
-                    <div class="input-wrapper">
-                        <button id="attach-file" class="input-btn" title="Attach File" aria-label="Attach File">
-                            <i class="fas fa-paperclip"></i>
-                        </button>
-
-                        <textarea 
-                            id="user-input" 
-                            placeholder="Type your message here... Press Enter to send, Shift+Enter for new line"
-                            rows="1"
-                            maxlength="5000"
-                        ></textarea>
-
-                        <div class="input-actions">
-                            <button id="voice-input" class="input-btn voice-btn" title="Voice Input" aria-label="Voice Input">
-                                <i class="fas fa-microphone"></i>
-                            </button>
-                            <button id="send-message" class="send-btn" title="Send Message" aria-label="Send Message">
-                                <i class="fas fa-paper-plane"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="input-footer">
-                        <div class="character-count">
-                            <span id="char-count">0</span>/5000
-                        </div>
-
-                        <div class="typing-indicator" id="typing-indicator">
-                            <div class="typing-dots">
-                                <span></span>
-                                <span></span>
-                                <span></span>
-                            </div>
-                            <span class="typing-text">AI is thinking...</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-    </div>
-
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Settings</h2>
-                <button class="modal-close" id="close-settings" aria-label="Close Settings">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <div class="modal-body">
-                <div class="settings-tabs">
-                    <button class="tab-btn active" data-tab="api">API Configuration</button>
-                    <button class="tab-btn" data-tab="ui">Interface</button>
-                    <button class="tab-btn" data-tab="voice">Voice</button>
-                    <button class="tab-btn" data-tab="advanced">Advanced</button>
-                </div>
-
-                <!-- API Configuration Tab -->
-                <div class="tab-content active" id="api-tab">
-                    <div class="form-group">
-                        <label for="llm-provider">LLM Provider</label>
-                        <select id="llm-provider" class="form-control">
-                            <!-- AI Pipe as first option (added for proxy support) -->
-                            <option value="aipipe">AI Pipe (aipipe.org)</option>
-                            <option value="openai">OpenAI GPT</option>
-                            <option value="anthropic">Anthropic Claude</option>
-                            <option value="google">Google Gemini</option>
-                            <option value="local">Local Model</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="api-key">API Key / Token</label>
-                        <div class="input-with-icon">
-                            <input type="password" id="api-key" class="form-control" placeholder="Enter your API key or AI Pipe token">
-                            <button class="toggle-visibility" type="button" aria-label="Toggle API key visibility">
-                                <i class="fas fa-eye"></i>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="model-name">Model</label>
-                        <select id="model-name" class="form-control">
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="max-tokens">Max Tokens</label>
-                        <input type="number" id="max-tokens" class="form-control" value="2000" min="100" max="8000">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="temperature">Temperature</label>
-                        <input type="range" id="temperature" class="form-range" min="0" max="2" step="0.1" value="0.7">
-                        <span class="range-value">0.7</span>
-                    </div>
-                </div>
-
-                <!-- Interface Tab -->
-                <div class="tab-content" id="ui-tab">
-                    <div class="form-group">
-                        <label>Theme</label>
-                        <div class="radio-group">
-                            <label class="radio-label">
-                                <input type="radio" name="theme" value="auto" checked>
-                                <span>Auto (System)</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="theme" value="light">
-                                <span>Light</span>
-                            </label>
-                            <label class="radio-label">
-                                <input type="radio" name="theme" value="dark">
-                                <span>Dark</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="animations-enabled" checked>
-                            <span>Enable Animations</span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="sound-enabled">
-                            <span>Sound Effects</span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="font-size">Font Size</label>
-                        <select id="font-size" class="form-control">
-                            <option value="small">Small</option>
-                            <option value="medium" selected>Medium</option>
-                            <option value="large">Large</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Voice Tab -->
-                <div class="tab-content" id="voice-tab">
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="voice-enabled">
-                            <span>Enable Voice Input</span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="voice-output-enabled">
-                            <span>Enable Voice Output</span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="voice-language">Language</label>
-                        <select id="voice-language" class="form-control">
-                            <option value="en-US">English (US)</option>
-                            <option value="en-GB">English (UK)</option>
-                            <option value="es-ES">Spanish</option>
-                            <option value="fr-FR">French</option>
-                            <option value="de-DE">German</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="speech-rate">Speech Rate</label>
-                        <input type="range" id="speech-rate" class="form-range" min="0.5" max="2" step="0.1" value="1">
-                        <span class="range-value">1x</span>
-                    </div>
-                </div>
-
-                <!-- Advanced Tab -->
-                <div class="tab-content" id="advanced-tab">
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="auto-save" checked>
-                            <span>Auto-save Conversations</span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="analytics-enabled">
-                            <span>Enable Analytics</span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="max-history">Max Conversation History</label>
-                        <input type="number" id="max-history" class="form-control" value="100" min="10" max="1000">
-                    </div>
-
-                    <div class="form-group">
-                        <button id="clear-all-data" class="btn btn-danger">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            Clear All Data
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer">
-                <button id="export-settings" class="btn btn-secondary">
-                    <i class="fas fa-download"></i>
-                    Export Settings
-                </button>
-                <button id="import-settings" class="btn btn-secondary">
-                    <i class="fas fa-upload"></i>
-                    Import Settings
-                </button>
-                <button id="save-settings" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    Save Settings
-                </button>
-            </div>
+      <form id="composer" class="composer" autocomplete="off">
+        <div id="file-chips" class="file-chips" hidden></div>
+        <div class="composer-box">
+          <button id="attach" class="icon-btn" type="button" title="Attach files" aria-label="Attach files">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 11-8.6 8.6a5 5 0 0 1-7-7l8.5-8.6a3.3 3.3 0 0 1 4.7 4.7l-8.6 8.6a1.7 1.7 0 0 1-2.4-2.4l8-8"/></svg>
+          </button>
+          <textarea id="input" rows="1" placeholder="Ask anything. The agent can search, run code, read files and draw charts." aria-label="Message"></textarea>
+          <button id="mic" class="icon-btn" type="button" title="Voice input" aria-label="Voice input">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
+          <button id="send" class="send" type="submit" aria-label="Send"></button>
         </div>
-    </div>
+        <p class="composer-hint">Enter to send · Shift+Enter for a new line · Drop files anywhere</p>
+        <input id="file-input" type="file" multiple hidden>
+      </form>
+    </main>
+  </div>
 
-    <!-- Performance Monitor -->
-    <div id="performance-monitor" class="performance-monitor">
-        <div class="perf-header">
-            <h4>Performance</h4>
-            <button id="toggle-perf" class="perf-toggle" aria-label="Toggle Performance">
-                <i class="fas fa-chart-line"></i>
-            </button>
-        </div>
-        <div class="perf-metrics">
-            <div class="metric">
-                <span class="metric-label">Response Time</span>
-                <span class="metric-value" id="response-time">0ms</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">Memory Usage</span>
-                <span class="metric-value" id="memory-usage">0MB</span>
-            </div>
-            <div class="metric">
-                <span class="metric-label">API Calls</span>
-                <span class="metric-value" id="api-calls">0</span>
-            </div>
-        </div>
-    </div>
+  <div id="dropzone" class="dropzone" hidden><div>Drop files to attach them</div></div>
+  <div id="toast" class="toast" role="status"></div>
 
-    <!-- Toast Notifications -->
-    <div id="toast-container" class="toast-container">
-        <!-- Toast messages will be added here -->
-    </div>
-
-    <!-- Context Menu -->
-    <div id="context-menu" class="context-menu">
-        <div class="context-item" data-action="copy">
-            <i class="fas fa-copy"></i> Copy
-        </div>
-        <div class="context-item" data-action="edit">
-            <i class="fas fa-edit"></i> Edit
-        </div>
-        <div class="context-item" data-action="delete">
-            <i class="fas fa-trash"></i> Delete
-        </div>
-        <div class="context-item" data-action="bookmark">
-            <i class="fas fa-bookmark"></i> Bookmark
-        </div>
-    </div>
-
-    <!-- File Input -->
-    <input type="file" id="file-input" multiple accept=".txt,.json,.csv,.md,.js,.py,.html,.css" style="display: none;">
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="agent.js"></script>
-    <script>
-      // small boot-time initialization fixups
-      document.addEventListener('DOMContentLoaded', () => {
-        // initialize highlight if present
-        if (window.hljs && typeof hljs.highlightAll === 'function') hljs.highlightAll();
-      });
-    </script>
+  <dialog id="settings" class="settings">
+    <form id="settings-form" method="dialog">
+      <header class="settings-head">
+        <h2>Settings</h2>
+        <button id="close-settings" type="button" class="icon-btn" aria-label="Close">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </header>
+      <div class="settings-body">
+        <fieldset>
+          <legend>Model</legend>
+          <label>Provider<select name="provider"></select></label>
+          <p id="demo-hint" class="hint">Demo mode needs no key. A keyword planner stands in for the model, so you can try every tool. Pick a provider to use a real LLM.</p>
+          <div id="provider-fields">
+            <label>API key
+              <span class="row"><input name="apiKey" type="password" spellcheck="false" autocomplete="off"><button id="toggle-key" type="button" class="btn sm">Show</button></span>
+            </label>
+            <p class="hint"><a id="key-link" target="_blank" rel="noopener">Get a key →</a> Keys stay in this browser and are sent only to the provider.</p>
+            <label class="check"><input name="rememberKey" type="checkbox"> Remember keys on this device (otherwise they're forgotten when the tab closes)</label>
+            <label>Model
+              <span class="row"><input name="model" list="model-list" spellcheck="false"><button id="fetch-models" type="button" class="btn sm">Load models</button></span>
+              <datalist id="model-list"></datalist>
+            </label>
+            <p class="hint">Pick a model that supports tool or function calling.</p>
+            <label id="base-url-row">Base URL<input name="baseUrl" spellcheck="false"></label>
+            <p id="ollama-hint" class="hint">Start Ollama with <code>OLLAMA_ORIGINS=*</code> so the browser can reach it.</p>
+          </div>
+        </fieldset>
+        <fieldset>
+          <legend>Agent</legend>
+          <div class="grid3">
+            <label>Temperature <span id="temp-value" class="muted"></span><input name="temperature" type="range" min="0" max="1.5" step="0.1"></label>
+            <label>Max tokens<input name="maxTokens" type="number" min="64" max="32000" step="64"></label>
+            <label>Max steps<input name="maxSteps" type="number" min="1" max="25"></label>
+          </div>
+          <label class="check"><input name="confirmCode" type="checkbox"> Ask before running code (human in the loop)</label>
+          <label for="system-prompt" class="label-row"><span>System prompt</span><button id="reset-prompt" type="button" class="link small">Reset to default</button></label>
+          <textarea id="system-prompt" name="systemPrompt" rows="7"></textarea>
+        </fieldset>
+        <fieldset>
+          <legend>Tools</legend>
+          <label>Tavily API key (optional)<input name="tavilyKey" type="password" spellcheck="false" autocomplete="off" placeholder="Leave empty to search Wikipedia"></label>
+          <p class="hint">With a <a href="https://app.tavily.com" target="_blank" rel="noopener">Tavily</a> key, <code>web_search</code> covers the whole web. Without one, it uses Wikipedia, which needs no key.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Appearance & data</legend>
+          <label>Theme<select name="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
+          <button id="clear-data" type="button" class="btn danger sm">Delete all local data</button>
+        </fieldset>
+      </div>
+      <footer class="settings-foot">
+        <button type="submit" class="btn primary">Save</button>
+      </footer>
+    </form>
+  </dialog>
 </body>
 </html>

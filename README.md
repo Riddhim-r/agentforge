@@ -1,330 +1,182 @@
+<div align="center">
+
+<img src="assets/logo.svg" width="72" height="72" alt="AgentForge logo">
+
 # AgentForge
 
-A browser-only LLM chat workspace with a built-in agent loop. There's no backend: everything runs client-side, and your API key goes straight from your browser to the provider.
+**A tool-using AI agent that runs entirely in your browser.**
+It plans, calls real tools, reads the results and keeps going until the job is done. No backend, no build step. Bring your own model.
 
-**Live:** [tds-llm-agent-teal.vercel.app](https://tds-llm-agent-teal.vercel.app)
+[**Try it live →**](https://agentforge.vercel.app) &nbsp;·&nbsp; [How it works](#how-the-agent-loop-works) &nbsp;·&nbsp; [Run locally](#run-it-locally)
 
-> **In one line:** a single-page chat app (vanilla JS + Bootstrap) that talks to OpenAI or any OpenRouter model through AI Pipe, runs an OpenAI-style tool-calling loop, saves conversations locally, and adds voice input, Markdown rendering and a performance panel.
+![CI](https://github.com/Riddhim-r/agentforge/actions/workflows/ci.yml/badge.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-orange)
+![No backend](https://img.shields.io/badge/backend-none-black)
 
----
+<img src="docs/agent-light.png" alt="AgentForge searching the web and drawing a chart" width="900">
 
-## Table of contents
-
-1. [Why this exists](#why-this-exists)
-2. [Project status](#project-status)
-3. [Features](#features)
-4. [Architecture](#architecture)
-5. [How the agent loop works](#how-the-agent-loop-works)
-6. [Providers](#providers)
-7. [Tools](#tools)
-8. [Project structure](#project-structure)
-9. [Tech stack](#tech-stack)
-10. [Getting started](#getting-started)
-11. [Settings reference](#settings-reference)
-12. [Design decisions](#design-decisions)
-13. [Privacy and security](#privacy-and-security)
-14. [Known limitations](#known-limitations)
-15. [Roadmap](#roadmap)
+</div>
 
 ---
 
-## Why this exists
+## Why I built this
 
-Agent frameworks usually mean a Python backend, a server to host and keys to manage. AgentForge explores the opposite: **how much of an LLM agent can run entirely in the browser?** No server means nothing to deploy beyond static files, no shared key to protect, and a codebase small enough to read in one sitting.
+Most agent demos need a Python server, a hosted API key and a deployment. I wanted to see how much of a real agent can run **client-side only**:
 
-The core idea is the standard agent loop:
+- **Nothing to host** except static files, so it deploys anywhere for free.
+- **No shared secret.** Each user's key goes straight from their tab to their provider.
+- **Small enough to read in one sitting.** The whole agent loop is about 100 lines ([`src/core/agent.js`](src/core/agent.js)).
 
-```python
-def loop(llm):
-    msgs = [user_input()]
-    while True:
-        output, tool_calls = llm(msgs, tools)
-        print("Agent:", output)
-        if tool_calls:
-            msgs += [handle_tool_call(tc) for tc in tool_calls]
-        else:
-            msgs.append(user_input())
-```
+It also works with **no key at all**. Demo mode swaps the LLM for a small scripted planner, but every tool it calls is real. Anyone can open the link and see the agent loop working within seconds.
 
-re-implemented in browser JavaScript with a production-style UI around it.
+## What it can do
 
----
+| Tool | What it does | How it runs in the browser |
+| --- | --- | --- |
+| `web_search` | Looks things up and cites sources | Wikipedia API (no key), or full-web search with a [Tavily](https://tavily.com) key |
+| `run_javascript` | Calculations, data transforms, quick checks | Isolated **Web Worker**, terminated after 10 s, so infinite loops can't freeze the page |
+| `run_python` | Real CPython: statistics, pandas, numpy | **Pyodide** (WebAssembly) in a worker. Loads on first use, state persists, attached files are mounted at `/data/` |
+| `read_file` | Reads files you attach or drop in | Text, code, CSV, JSON, Markdown, and **PDF** (text extracted with pdf.js); pages through long files |
+| `create_chart` | Draws charts in the conversation | Chart.js (bar, line, pie, doughnut, scatter, radar) |
+| `get_datetime` | Knows "today" | `Intl` API |
 
-## Project status
+**Models:** OpenRouter, OpenAI, Anthropic, Google Gemini, Groq, AI Pipe, local **Ollama**, or any OpenAI-compatible endpoint.
 
-| Area | Status |
-| --- | --- |
-| Chat UI, conversations, settings, rendering | ✅ Working |
-| OpenAI and AI Pipe (OpenRouter) providers | ✅ Working |
-| Agent loop (handles `tool_calls`, re-calls model, 5-turn cap) | ✅ Implemented |
-| Tool schemas (`web_search`, `execute_code`, `process_file`, `create_visualization`) | ✅ Defined |
-| Sending tool schemas with each request | ⏳ Not yet wired up |
-| Real tool implementations | ⏳ Currently return **simulated** results |
-| Gemini request format, Anthropic provider | ⏳ Planned |
+**Around the agent**
+- **Streaming** responses, with every tool call shown as a card: arguments, output, timing and status.
+- **Human-in-the-loop mode:** approve or skip each code execution before it runs.
+- **Stop** a run at any point. The history is repaired so the next request stays valid.
+- Parallel tool calls, a configurable step limit, an editable system prompt, and per-conversation token usage.
+- Conversations saved locally, Markdown export, voice input, light/dark themes, mobile layout, installable as a PWA.
 
-The loop and tool plumbing are in place; connecting the tools end to end is the next milestone (see [Roadmap](#roadmap)).
-
----
-
-## Features
-
-**Chat and conversations**
-- Multiple conversations, each with its own history, saved to `localStorage` and restored on reload (the most recent one opens automatically).
-- **Export** any conversation as a Markdown file.
-- Per-message actions: **copy** to clipboard, or **edit** (loads the text back into the input box).
-- **Enter** to send, **Shift+Enter** for a new line.
-
-**Rendering**
-- Assistant replies rendered as **Markdown** (`marked`), with **syntax-highlighted code blocks** (`highlight.js`, language auto-detected).
-- Separate visual styles for user, assistant, system and tool messages.
-
-**Models**
-- Switch provider and model from the settings panel.
-- **Live model lists** fetched from the provider's `/models` endpoint (AI Pipe checks both its OpenRouter and OpenAI routes).
-- Adjustable **temperature** and **max tokens**.
-
-**Voice**
-- **Voice input** through the Web Speech API (`SpeechRecognition`), where the browser supports it.
-- Settings for voice output, language and speech rate.
-
-**Files**
-- File picker with a supported-types check; uploads are acknowledged in the chat as metadata (see [Known limitations](#known-limitations)).
-
-**Diagnostics**
-- **Performance panel:** response time (via `PerformanceObserver`), number of API calls, and JS heap usage (Chromium browsers).
-- Every tool call and its result appear in the chat, which makes the agent's steps easy to follow.
-
-**UI**
-- Light, dark and auto **themes**; adjustable font size; animation toggle.
-- Toast notifications for every success and error, a loading screen, and a collapsible sidebar.
-- **Demo mode:** without an API key, the app replies with a placeholder so the UI can be explored safely.
-
----
-
-## Architecture
-
-```mermaid
-flowchart TD
-    subgraph Browser
-        UI[index.html<br/>Bootstrap UI] --> APP[AgentForge class · agent.js]
-        APP --> ST[(State proxy<br/>conversations · settings · perf)]
-        ST <--> LS[(localStorage<br/>agentflow_conversations<br/>agentflow_settings)]
-        APP --> LOOP[agentLoop · max 5 turns]
-        LOOP --> CALL[callLLM<br/>provider-specific request]
-        CALL --> PARSE[parseAPIResponse<br/>normalize reply]
-        PARSE --> TC{tool_calls?}
-        TC -- yes --> EXEC[executeTool<br/>run in parallel]
-        EXEC --> LOOP
-        TC -- no --> REN[Render Markdown + code]
-    end
-
-    CALL -- HTTPS --> OAI[api.openai.com]
-    CALL -- HTTPS --> AIP[aipipe.org<br/>OpenRouter-compatible]
-```
-
-All application logic is in one class, `AgentForge`:
-
-- **State** is wrapped in a JavaScript `Proxy`, so every change triggers `onStateChange` and the UI stays in sync without a framework.
-- An **`EventTarget` event bus** decouples UI events from agent logic.
-- Conversations are held in a `Map` and serialized to `localStorage` on change.
-
----
+<img src="docs/agent-dark.png" alt="Python running in the browser via Pyodide, dark theme" width="900">
 
 ## How the agent loop works
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant A as agentLoop
-    participant M as LLM provider
+    participant A as runAgent()
+    participant P as Provider adapter
     participant T as Tools
 
     U->>A: message
-    loop up to 5 turns
-        A->>M: conversation history
-        M-->>A: content and/or tool_calls
-        A-->>U: show assistant content
-        alt tool_calls present
-            A->>T: run all tool calls in parallel
-            T-->>A: results
-            A-->>U: show each tool result
-            Note over A: append tool messages, call model again
-        else no tool calls
-            Note over A: done
+    loop until no tool calls (or max steps)
+        A->>P: history + tool schemas
+        P-->>A: streamed text + tool_calls
+        alt tool calls present
+            A->>T: run all calls in parallel (approval if enabled)
+            T-->>A: results (errors become results, not crashes)
+            A->>A: append results to history
+        else final answer
+            A-->>U: done
         end
     end
 ```
 
-1. The user's message is appended to the conversation.
-2. `callLLM` sends the history to the selected provider, and `parseAPIResponse` normalizes the reply into `{ content, tool_calls }`.
-3. Any `content` is shown immediately.
-4. If `tool_calls` are present, the assistant's tool request is recorded, every call runs in parallel with `Promise.all`, and each result is appended as a `tool` message tied to its `tool_call_id`. The loop then calls the model again so it can use the results.
-5. The loop ends when the model replies without tool calls, when an error occurs (shown as a system message), or after **5 turns**.
+The core is provider-agnostic. Messages use one neutral shape, and each provider adapter converts it to its own API format:
 
----
-
-## Providers
-
-| Provider | Endpoint | Auth | Notes |
-| --- | --- | --- | --- |
-| **OpenAI** | `https://api.openai.com/v1/chat/completions` | `Bearer` key | Model list from `/v1/models` |
-| **AI Pipe** | `https://aipipe.org/openrouter/v1/chat/completions` | `Bearer` token | Any OpenRouter model (default `openai/gpt-4o-mini`); model list from AI Pipe's OpenRouter and OpenAI routes |
-
-Messages are stored in OpenAI chat format and translated per provider inside `callLLM`, so adding a provider means writing one request builder and one response parser.
-
-When a request fails, the provider's error message is extracted from the response body and shown in the chat, along with a hint to check the selected model.
-
----
-
-## Tools
-
-Tools are declared with OpenAI function-calling JSON schemas:
-
-| Tool | Parameters | Intended behaviour | Current state |
-| --- | --- | --- | --- |
-| `web_search` | `query` (string), `results` (int, default 5) | Search the web for current information | Simulated |
-| `execute_code` | `code` (string) | Run JavaScript and return the output | Simulated |
-| `process_file` | `fileId` (string), `operation` (default `analyze`) | Analyse an uploaded file | Simulated |
-| `create_visualization` | `data` (string), `type` (default `line`), `title` | Produce a chart from data | Simulated |
-
-Each tool is dispatched by name in `executeTool`, and unknown tool names return a structured error instead of throwing.
-
----
-
-## Project structure
-
-```text
-agentforge/
-├── index.html    # Layout: sidebar, chat, settings modal, performance panel, loading screen
-├── agent.js      # AgentForge class: state, UI, agent loop, providers, tools, storage, voice
-├── styles.css    # Theme variables, light/dark styles, message styles, animations
-├── LICENSE       # MIT
-└── README.md
+```js
+{ role: 'user', content }
+{ role: 'assistant', content, toolCalls: [{ id, name, arguments }] }
+{ role: 'tool', toolCallId, name, content, isError, ms }
 ```
 
----
+| Adapter | Covers | Notes |
+| --- | --- | --- |
+| [`openai.js`](src/providers/openai.js) | OpenAI, OpenRouter, Gemini, Groq, AI Pipe, Ollama, custom | Re-assembles tool calls whose JSON arguments arrive in fragments across SSE chunks |
+| [`anthropic.js`](src/providers/anthropic.js) | Claude models | `tool_use` / `tool_result` content blocks, `input_json_delta` streaming, merges consecutive results into one user turn |
+| [`demo.js`](src/providers/demo.js) | No key | Keyword planner that drives the real tools |
 
-## Tech stack
+## Architecture
 
-| Concern | Technology |
-| --- | --- |
-| Language | Vanilla **JavaScript** (ES2020+, classes, async/await, Proxy) |
-| UI | **Bootstrap 5.3**, custom CSS with theme variables |
-| Markdown | **marked** |
-| Code highlighting | **highlight.js** |
-| Voice | **Web Speech API** |
-| Persistence | **localStorage** |
-| Hosting | **Vercel** (static) |
+```mermaid
+flowchart LR
+    subgraph Browser tab
+        UI[main.js<br/>UI + state] --> AG[core/agent.js<br/>agent loop]
+        AG --> PR[providers/*<br/>OpenAI · Anthropic · Demo]
+        AG --> TL[tools/*]
+        TL --> W1[[JS Web Worker]]
+        TL --> W2[[Pyodide Worker]]
+        UI <--> LS[(localStorage<br/>chats · settings)]
+        UI <--> SS[(sessionStorage<br/>API keys)]
+    end
+    PR -- HTTPS + SSE --> LLM[(LLM provider)]
+    TL -- HTTPS --> WEB[(Wikipedia / Tavily)]
+```
 
-No build step, no bundler, no framework.
+```
+agentforge/
+├── index.html              # markup only
+├── styles.css              # design tokens, light/dark themes, responsive layout
+├── src/
+│   ├── main.js             # UI controller: conversations, streaming render, settings, files
+│   ├── render.js           # Markdown (sanitised), tool cards, charts
+│   ├── storage.js          # localStorage/sessionStorage persistence
+│   ├── core/
+│   │   ├── agent.js        # runAgent, executeToolCall, repairHistory
+│   │   ├── sse.js          # streaming Server-Sent Events parser
+│   │   └── http.js         # readable API and network errors
+│   ├── providers/          # openai.js, anthropic.js, demo.js, index.js (presets)
+│   └── tools/              # web-search, code (+ workers), files, charts
+├── tests/                  # node:test unit tests, no dependencies
+└── .github/workflows/ci.yml
+```
 
----
+No framework and no bundler: native ES modules, with four small libraries from a CDN (marked, DOMPurify, highlight.js, Chart.js). Pyodide and pdf.js load only when first needed.
 
-## Getting started
+## Design decisions
 
-### Run locally
+- **One neutral message format with thin adapters**, rather than OpenAI's format everywhere. Anthropic's block-based format differs enough that converting at the edge kept the loop simple. Adding a provider is one file.
+- **Tool failures are data.** Unknown tools, malformed JSON arguments, timeouts and user denials all come back to the model as `isError` results, so it can recover instead of the run crashing.
+- **Workers, not `eval` or iframes**, for code. A worker can be `terminate()`d, which is the only reliable way to stop `while(true){}`, and it has no access to the page, the DOM or the stored API key.
+- **Keys in `sessionStorage` by default.** They're forgotten when the tab closes unless you choose to remember them. Model output is rendered through **DOMPurify**, so a prompt-injected `<img onerror>` can't run.
+- **`repairHistory()` after every run.** If you stop mid-tool-call, the history would contain a `tool_call` with no result, and every API rejects that. The repair step inserts a "cancelled" result so the conversation stays usable.
+- **Demo mode as a first-class provider**, so the live link is never a dead end for someone without a key.
+
+## Run it locally
+
+No install is needed for the app itself:
 
 ```bash
 git clone https://github.com/Riddhim-r/agentforge.git
 cd agentforge
-
-# Option 1: open index.html directly in Chrome, Edge or Firefox
-# Option 2: serve the folder (recommended, avoids file:// restrictions)
-python -m http.server 8000
+npm run dev        # serves on http://localhost:5173 (or any static server)
+npm test           # 24 unit tests: agent loop, SSE parsing, provider adapters, tools
 ```
 
-Then open **http://localhost:8000**.
+Then open Settings, pick a provider and paste a key. [OpenRouter](https://openrouter.ai/keys) gives you one key for hundreds of models, including free ones. Choose a model that supports tool calling.
 
-### Connect a model
+**Local models:** run `OLLAMA_ORIGINS=* ollama serve`, choose *Ollama (local)*, and use a tool-capable model such as `llama3.2` or `qwen2.5`.
 
-1. Open **Settings** (gear icon).
-2. Choose a **provider**: OpenAI or AI Pipe.
-3. Paste your **API key** or AI Pipe token.
-4. Pick a **model** from the list, which is loaded live from the provider.
-5. Save, then start chatting.
+## Deploy
 
-### Deploy
-
-Any static host works (Vercel, Netlify, GitHub Pages). Upload the three files; nothing needs configuring.
-
----
-
-## Settings reference
-
-| Group | Setting | Default |
-| --- | --- | --- |
-| LLM | Provider | `aipipe` |
-| LLM | Model | provider default |
-| LLM | Max tokens | `2000` |
-| LLM | Temperature | `0.7` |
-| UI | Theme | `auto` |
-| UI | Font size | `medium` |
-| UI | Animations | on |
-| UI | Sounds | off |
-| Voice | Input, output, language, speech rate | configurable |
-| Advanced | Auto-save, max history | configurable |
-
-All settings are saved in `localStorage` under `agentflow_settings`.
-
----
-
-## Design decisions
-
-**1. Client-side only.**
-Requests go directly from the browser to the provider. There's no server to host, scale or secure, and no shared key that could leak or be abused. Hosting costs nothing.
-
-**2. One internal message format.**
-Conversations are kept in OpenAI chat format, the de facto standard, and translated per provider only at the edge. The rest of the app never needs to know which model is answering.
-
-**3. A bounded agent loop.**
-The loop is capped at 5 model calls per user message, so a model that keeps requesting tools can't burn through someone's API credits.
-
-**4. Parallel tool execution.**
-Independent tool calls from one model turn run together with `Promise.all`, which cuts latency when the model asks for several things at once.
-
-**5. Make every step visible.**
-Tool requests and results are shown as messages, and API calls and timings are tracked in the performance panel, so you can see exactly what the agent did and why.
-
-**6. Reactive state without a framework.**
-A `Proxy` around the state object turns every assignment into a change notification, which gives framework-like reactivity in plain JavaScript.
-
----
+It's a static site. On Vercel: **Add New → Project →** import this repo → **Deploy** (no build command, no output directory). Netlify, Cloudflare Pages and GitHub Pages work the same way.
 
 ## Privacy and security
 
-- Conversations and settings stay in **your browser's `localStorage`**. Nothing is sent anywhere except the model requests themselves.
-- **Your API key is also saved in `localStorage`** so you don't have to re-enter it. On a shared computer, clear this site's data in your browser when you're done.
-- Model output is rendered as Markdown, so it should be treated as untrusted HTML; adding an HTML sanitizer such as DOMPurify is on the roadmap.
+- There's no server. Conversations and settings stay in your browser's storage.
+- API keys are sent only to the provider you selected, directly from your browser.
+- Code the model writes runs in a sandboxed worker with a timeout. Turn on *Ask before running code* to review each run.
+- Calling some providers from a browser exposes your key to that page's JavaScript. That's fine for a personal tool, but don't paste a key for a shared or high-limit account into a site you don't trust (including this one).
 
----
+## Limitations
 
-## Known limitations
-
-- Tool schemas are defined but **not yet sent** with the model request, so models currently answer without calling tools.
-- Tool implementations return **simulated** results.
-- `tool` messages are converted to `system` messages before sending, which works but loses the strict `tool_call_id` link that OpenAI expects.
-- The Gemini request body doesn't yet match Google's `contents`/`parts` format, and Anthropic models are listed but have no request builder.
-- Uploaded files are acknowledged by name and size but not read or stored.
-
----
+- Each provider must allow browser (CORS) requests. OpenAI, Anthropic, OpenRouter, Gemini and Groq do; some proxies don't.
+- Keyless web search covers Wikipedia only. Add a Tavily key for the open web.
+- Attached files live in memory for the session; they aren't saved with the conversation.
+- The first Python run downloads the Pyodide runtime (~10 MB, cached afterwards).
 
 ## Roadmap
 
-- [ ] Send the `tools` array with every request, and keep `tool` messages in native OpenAI format.
-- [ ] `execute_code`: run JavaScript in a sandboxed **Web Worker** with a timeout and captured console output.
-- [ ] `web_search`: real results through a search API.
-- [ ] `process_file`: read uploads with `FileReader` (text, CSV, JSON) and pass content to the model.
-- [ ] `create_visualization`: render charts with Chart.js.
-- [ ] Add an Anthropic request builder and fix the Gemini format.
-- [ ] Sanitize rendered Markdown with DOMPurify.
-- [ ] Stream tokens as they arrive.
-
----
+- [ ] MCP client: connect to remote MCP servers over HTTP and expose their tools
+- [ ] Run small models fully on-device with WebLLM (no key, no network)
+- [ ] Export and replay agent traces (JSON) for debugging prompts
+- [ ] Per-conversation tool toggles and a cost estimate per run
+- [ ] Image input for vision models
 
 ## License
 
-MIT, see [LICENSE](LICENSE).
+[MIT](LICENSE) © Riddhim Rathor
 
-## Author
-
-**Riddhim Rathor** · [LinkedIn](https://linkedin.com/in/riddhim-rathor) · [Portfolio](https://riddhim-spotted-on.vercel.app/) · [GitHub](https://github.com/Riddhim-r)
+<sub>Built by **Riddhim Rathor** · [Portfolio](https://riddhim-spotted-on.vercel.app) · [LinkedIn](https://www.linkedin.com/in/riddhim-rathor) · [GitHub](https://github.com/Riddhim-r)</sub>
